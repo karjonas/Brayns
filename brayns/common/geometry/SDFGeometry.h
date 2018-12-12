@@ -29,7 +29,8 @@ enum class SDFType : uint8_t
     Sphere = 0,
     Pill = 1,
     ConePill = 2,
-    ConePillSigmoid = 3
+    ConePillSigmoid = 3,
+    CubicBezier = 4
 };
 
 struct SDFGeometry
@@ -38,8 +39,11 @@ struct SDFGeometry
     Vector3f center;
     Vector3f p0;
     Vector3f p1;
+    Vector3f p2;
     float radius = -1.f;
+    float raidus_mid = -1.f;
     float radius_tip = -1.f;
+    float radius_p2 = -1.f;
     uint64_t neighboursIndex = 0;
     uint8_t numNeighbours = 0;
     SDFType type;
@@ -101,6 +105,26 @@ inline SDFGeometry createSDFConePillSigmoid(const Vector3f& p0,
     return geom;
 }
 
+inline SDFGeometry createSDFCubicBezier(const Vector3f& p0, const Vector3f& p1,
+                                        const Vector3f& p2, const Vector3f& p3,
+                                        const float r0, const float r1,
+                                        const float r2, const float r3,
+                                        const uint64_t data = 0)
+{
+    SDFGeometry geom;
+    geom.userData = data;
+    geom.p0 = p0;
+    geom.center = p1;
+    geom.p1 = p2;
+    geom.p2 = p3;
+    geom.radius = r0;
+    geom.raidus_mid = r1;
+    geom.radius_tip = r2;
+    geom.radius_p2 = r3;
+    geom.type = SDFType::CubicBezier;
+    return geom;
+}
+
 inline Boxd getSDFBoundingBox(const SDFGeometry& geom)
 {
     Boxd bounds;
@@ -127,6 +151,16 @@ inline Boxd getSDFBoundingBox(const SDFGeometry& geom)
         bounds.merge(geom.p0 + Vector3f(geom.radius));
         bounds.merge(geom.p1 - Vector3f(geom.radius_tip));
         bounds.merge(geom.p1 + Vector3f(geom.radius_tip));
+        break;
+    }
+    case brayns::SDFType::CubicBezier:
+    {
+        const float max_radius =
+            std::max(geom.radius_tip, std::max(geom.radius, geom.raidus_mid));
+        bounds.merge(geom.p0 - Vector3f(max_radius));
+        bounds.merge(geom.p0 + Vector3f(max_radius));
+        bounds.merge(geom.p1 - Vector3f(max_radius));
+        bounds.merge(geom.p1 + Vector3f(max_radius));
         break;
     }
     default:

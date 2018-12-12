@@ -656,110 +656,39 @@ void Scene::buildDefault()
 
     const Vector3f WHITE = {1.f, 1.f, 1.f};
 
-    const Vector3f positions[8] = {
-        {0.f, 0.f, 0.f}, {1.f, 0.f, 0.f}, //    6--------7
-        {0.f, 1.f, 0.f},                  //   /|       /|
-        {1.f, 1.f, 0.f},                  //  2--------3 |
-        {0.f, 0.f, 1.f},                  //  | |      | |
-        {1.f, 0.f, 1.f},                  //  | 4------|-5
-        {0.f, 1.f, 1.f},                  //  |/       |/
-        {1.f, 1.f, 1.f}                   //  0--------1
-    };
+    Vector3f p00{74.f, 100.f, 0.f}; // Spline 1
+    Vector3f p01{62.f, 88.f, 0.f};
+    Vector3f p02{136.f, 48.f, 0.f};
+    Vector3f p03{139.f, 69.f, 0.f};
 
-    const uint16_t indices[6][6] = {
-        {5, 4, 6, 6, 7, 5}, // Front
-        {7, 5, 1, 1, 3, 7}, // Right
-        {3, 1, 0, 0, 2, 3}, // Back
-        {2, 0, 4, 4, 6, 2}, // Left
-        {0, 1, 5, 5, 4, 0}, // Bottom
-        {7, 3, 2, 2, 6, 7}  // Top
-    };
+    Vector3f p10{139.f, 69.f, 0.f}; // Spline 2
+    Vector3f p11{171.f, 127.f, 0.f};
+    Vector3f p12{276.f, 159.f, 0.f};
+    Vector3f p13{195.f, 155.f, 0.f};
 
-    const Vector3f colors[6] = {{0.8f, 0.8f, 0.8f}, {1.f, 0.f, 0.f},
-                                {0.8f, 0.8f, 0.8f}, {0.f, 1.f, 0.f},
-                                {0.8f, 0.8f, 0.8f}, {0.8f, 0.8f, 0.8f}};
+    Vector3f p20{195.f, 155.f, 0.f}; // Spline 3
+    Vector3f p21{185.f, 155.f, 0.f};
+    Vector3f p22{185.f, 205.f, 0.f};
+    Vector3f p23{233.f, 205.f, 0.f};
 
     size_t materialId = 0;
-    for (size_t i = 1; i < 6; ++i)
-    {
-        // Cornell box
-        auto material =
-            model->createMaterial(materialId,
-                                  "wall_" + std::to_string(materialId));
-        material->setDiffuseColor(colors[i]);
-        material->setSpecularColor(WHITE);
-        material->setSpecularExponent(10.f);
-        material->setReflectionIndex(i == 4 ? 0.2f : 0.f);
-        material->setGlossiness(i == 4 ? 0.9f : 1.f);
-        material->setOpacity(1.f);
-
-        auto& trianglesMesh = model->getTrianglesMeshes()[materialId];
-        for (size_t j = 0; j < 6; ++j)
-        {
-            const auto position = positions[indices[i][j]];
-            trianglesMesh.vertices.push_back(position);
-        }
-        trianglesMesh.indices.push_back(Vector3ui(0, 1, 2));
-        trianglesMesh.indices.push_back(Vector3ui(3, 4, 5));
-        ++materialId;
-    }
+    auto material = model->createMaterial(materialId, "spline");
+    material->setDiffuseColor({0.1f, 0.1f, 0.8f});
+    material->setSpecularColor(WHITE);
+    material->setSpecularExponent(10.f);
 
     {
-        // Sphere
-        auto material = model->createMaterial(materialId, "sphere");
-        material->setOpacity(0.2f);
-        material->setRefractionIndex(1.5f);
-        material->setReflectionIndex(0.1f);
-        material->setDiffuseColor(WHITE);
-        material->setSpecularColor(WHITE);
-        material->setSpecularExponent(100.f);
-        model->addSphere(materialId, {{0.25f, 0.26f, 0.30f}, 0.25f});
-        ++materialId;
-    }
+        auto geom0 =
+            createSDFCubicBezier(p00, p01, p02, p03, 4.f, 20.0f, 2.5f, 4.0f);
+        auto geom1 =
+            createSDFCubicBezier(p10, p11, p12, p13, 4.f, 20.0f, 2.5f, 4.0f);
+        auto geom2 =
+            createSDFCubicBezier(p20, p21, p22, p23, 4.f, 20.0f, 2.5f, 4.0f);
 
-    {
-        // Cylinder
-        auto material = model->createMaterial(materialId, "cylinder");
-        material->setDiffuseColor({0.1f, 0.1f, 0.8f});
-        material->setSpecularColor(WHITE);
-        material->setSpecularExponent(10.f);
-        model->addCylinder(materialId, {{0.25f, 0.126f, 0.75f},
-                                        {0.75f, 0.126f, 0.75f},
-                                        0.125f});
-        ++materialId;
+        model->addSDFGeometry(materialId, geom0, {});
+        model->addSDFGeometry(materialId, geom1, {});
+        model->addSDFGeometry(materialId, geom2, {});
     }
-
-    {
-        // Cone
-        auto material = model->createMaterial(materialId, "cone");
-        material->setReflectionIndex(0.8f);
-        material->setSpecularColor(WHITE);
-        material->setSpecularExponent(10.f);
-        model->addCone(materialId, {{0.75f, 0.01f, 0.25f},
-                                    {0.75f, 0.5f, 0.25f},
-                                    0.15f,
-                                    0.f});
-        ++materialId;
-    }
-
-    {
-        // Lamp
-        auto material = model->createMaterial(materialId, "lamp");
-        material->setDiffuseColor(WHITE);
-        material->setEmission(5.f);
-        const Vector3f lampInfo = {0.15f, 0.99f, 0.15f};
-        const Vector3f lampPositions[4] = {
-            {0.5f - lampInfo.x(), lampInfo.y(), 0.5f - lampInfo.z()},
-            {0.5f + lampInfo.x(), lampInfo.y(), 0.5f - lampInfo.z()},
-            {0.5f + lampInfo.x(), lampInfo.y(), 0.5f + lampInfo.z()},
-            {0.5f - lampInfo.x(), lampInfo.y(), 0.5f + lampInfo.z()}};
-        auto& trianglesMesh = model->getTrianglesMeshes()[materialId];
-        for (size_t i = 0; i < 4; ++i)
-            trianglesMesh.vertices.push_back(lampPositions[i]);
-        trianglesMesh.indices.push_back(Vector3i(2, 1, 0));
-        trianglesMesh.indices.push_back(Vector3i(0, 3, 2));
-    }
-
     addModel(
         std::make_shared<ModelDescriptor>(std::move(model), "DefaultScene"));
 }

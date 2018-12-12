@@ -36,6 +36,7 @@
 #define SDF_TYPE_PILL 1
 #define SDF_TYPE_CONE_PILL 2
 #define SDF_TYPE_CONE_PILL_SIGMOID 3
+#define SDF_TYPE_CUBIC_BEZIER 4
 
 #define SDF_BLEND_FACTOR 0.1
 #define SDF_BLEND_LERP_FACTOR 0.2
@@ -102,6 +103,117 @@ inline float sdConePill(const vec3f& p, const vec3f p0, const vec3f p1,
     return length(p - Pb) - thickness;
 }
 
+vec3f evaluateBezierCurve(const float t, const vec3f& p0, const vec3f& p1,
+                          const vec3f& p2, const vec3f& p3)
+{
+    const vec3f n = -1.f * p0 + 3.f * p1 + -3.f * p2 + p3;
+    const vec3f r = 3.f * p0 + -6.f * p1 + 3.f * p2;
+    const vec3f s = -3.f * p0 + 3.f * p1;
+    const vec3f& v = p0;
+
+    return t * (s + t * (r + t * n)) + v;
+}
+
+float getBezierRadius(const float t, const float r0, const float r1,
+                      const float r2, const float r3)
+{
+    const float t2 = t * t;
+    const float t3 = t2 * t;
+    const float mt = 1 - t;
+    const float mt2 = mt * mt;
+    const float mt3 = mt2 * mt;
+    return r0 * mt3 + 3 * r1 * mt2 * t + 3 * r2 * mt * t2 + r3 * t3;
+}
+
+float evaluateBezierCurveDistance(const vec3f& p, const float t,
+                                  const vec3f& p0, const vec3f& p1,
+                                  const vec3f& p2, const vec3f& p3,
+                                  const float r0, const float r1,
+                                  const float r2, const float r3)
+{
+    const vec3f p_closest = evaluateBezierCurve(t, p0, p1, p2, p3);
+
+    const float dx = p.x - p_closest.x;
+    const float dy = p.y - p_closest.y;
+    const float dz = p.z - p_closest.z;
+
+    const float thick = getBezierRadius(t, r0, r1, r2, r3);
+
+    return sqrtf(dx * dx + dy * dy + dz * dz) - thick;
+}
+
+inline float sdCubicBezier(const vec3f& p, const vec3f p0, const vec3f p1,
+                           const vec3f p2, const vec3f p3, const float r0,
+                           const float r1, const float r2, const float r3)
+{
+    const int num_samples = 10;
+    const float step = 1.f / num_samples;
+
+    float mindist = 9999999.f;
+    float bestt = 0.f;
+
+    for (int i = 0; i <= num_samples; i++)
+    {
+        const float t = i * step;
+        const float dcurr =
+            evaluateBezierCurveDistance(p, t, p0, p1, p2, p3, r0, r1, r2, r3);
+        if (dcurr < mindist)
+        {
+            mindist = dcurr;
+            bestt = t;
+        }
+    }
+
+    float d = mindist;
+    float t = bestt;
+    float t_low = max(0.f, t - step);
+    float t_high = min(1.f, t + step);
+    const float epsilon = 0.0000000001f;
+
+    while (true)
+    {
+        float t_low_next = t - 0.5f * abs(t - t_low);
+        float t_high_next = t + 0.5f * abs(t - t_high);
+        float d_low_next = evaluateBezierCurveDistance(p, t_low_next, p0, p1,
+                                                       p2, p3, r0, r1, r2, r3);
+        float d_high_next = evaluateBezierCurveDistance(p, t_high_next, p0, p1,
+                                                        p2, p3, r0, r1, r2, r3);
+
+        if (d <= epsilon)
+        {
+            return d;
+        }
+
+        if (d_low_next < d_high_next && abs(d_low_next - d) > epsilon)
+        {
+            t_high = t;
+            t = t_low_next;
+            d = d_low_next;
+        }
+        else if (d_high_next < d_low_next && abs(d_high_next - d) > epsilon)
+        {
+            t_low = t;
+            t = t_high_next;
+            d = d_high_next;
+        }
+        else
+        {
+            return d;
+        }
+    }
+
+    return d;
+
+    //    const float dx = p.x - pT.x;
+    //    const float dy = p.y - pT.y;
+    //    const float dz = p.z - pT.z;
+    //
+    //    const float thick = get_thickness(t, thickness);
+    //
+    //    return sqrtf(dx * dx + dy * dy + dz * dz) - thick;
+    //    return -1;
+}
+
 // AABB-Ray intersection ( http://prideout.net/blog/?p=64 ).
 inline varying bool intersectBox(Ray& ray, const vec3f aabbMin,
                                  const vec3f aabbMax, float& t0, float& t1)
@@ -141,8 +253,11 @@ struct SDFGeometry
     vec3f center;
     vec3f p0;
     vec3f p1;
+    vec3f p2;
     float radius;
+    float radius_mid;
     float radius_tip;
+    float radius_p2;
     uint64 neighboursIndex;
     uint8 numNeighbours;
     uint8 type;
@@ -155,7 +270,6 @@ struct SDFGeometries
     uniform SDFGeometry* uniform geometries;
     uniform uint64* uniform geometryRefs;
     uniform uint64* uniform neighbours;
-
 
     uniform bool useSafeIncrement;
 };
@@ -233,6 +347,32 @@ uniform box3fa calcBounds(const uniform SDFGeometry& primitive)
         return make_box3fa(primitive.center - make_vec3f(primitive.radius),
                            primitive.center + make_vec3f(primitive.radius));
     }
+    else if (primitive.type == SDF_TYPE_CUBIC_BEZIER)
+    {
+        const uniform vec3f minV = make_vec3f(
+            min(primitive.p2.x,
+                min(primitive.center.x, min(primitive.p0.x, primitive.p1.x))),
+            min(primitive.p2.y,
+                min(primitive.center.y, min(primitive.p0.y, primitive.p1.y))),
+            min(primitive.p2.z,
+                min(primitive.center.z, min(primitive.p0.z, primitive.p1.z))));
+
+        const uniform vec3f maxV = make_vec3f(
+            max(primitive.p2.x,
+                max(primitive.center.x, max(primitive.p0.x, primitive.p1.x))),
+            max(primitive.p2.y,
+                max(primitive.center.y, max(primitive.p0.y, primitive.p1.y))),
+            max(primitive.p2.z,
+                max(primitive.center.z, max(primitive.p0.z, primitive.p1.z))));
+
+        const uniform float maxRadius =
+            max(primitive.radius_tip,
+                max(primitive.radius_mid,
+                    max(primitive.radius, primitive.radius_p2)));
+        const uniform vec3f radiusV = make_vec3f(maxRadius);
+
+        return make_box3fa(minV - radiusV, maxV + radiusV);
+    }
     // else primitive.type == SDF_TYPE_CONE_PILL ||
     //      primitive.type == SDF_TYPE_PILL ||
     //      primitive.type == SDF_TYPE_CONE_PILL_SIGMOID
@@ -270,6 +410,13 @@ inline float calcDistance(const uniform SDFGeometry& primitive, const vec3f& p)
         return sdConePill(p, primitive.p0, primitive.p1, primitive.radius,
                           primitive.radius_tip,
                           primitive.type == SDF_TYPE_CONE_PILL_SIGMOID);
+    }
+    if (primitive.type == SDF_TYPE_CUBIC_BEZIER)
+    {
+        return sdCubicBezier(p, primitive.p0, primitive.center, primitive.p1,
+                             primitive.p2, primitive.radius,
+                             primitive.radius_mid, primitive.radius_tip,
+                             primitive.radius_p2);
     }
 
     return -1.0;
