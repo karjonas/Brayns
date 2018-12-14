@@ -47,6 +47,43 @@
 #define STURM_SIZE 21
 
 #define MAGIC_FAIL 1234567.f
+/////////////////////////////////////////////////////////////////////////////
+
+// NOTE: This layout must match exactly the 'SDFGeometry' struct in
+// 'SDFGeometry.h'
+struct SDFGeometry
+{
+    uint64 userData;
+    vec3f center;
+    vec3f p0;
+    vec3f p1;
+    vec3f p2;
+    float radius;
+    float radius_mid;
+    float radius_tip;
+    float radius_p2;
+    uint64 neighboursIndex;
+    uint8 numNeighbours;
+    uint8 type;
+    vec3f derivative[3];
+    float inv_leading_coefficient;
+    float precomputed_coefficients[6];
+    vec3f polynomial_form[4];
+};
+
+struct SDFGeometries
+{
+    uniform Geometry super;
+
+    uniform SDFGeometry* uniform geometries;
+    uniform uint64* uniform geometryRefs;
+    uniform uint64* uniform neighbours;
+
+    uniform bool useSafeIncrement;
+};
+
+DEFINE_SAFE_INCREMENT(SDFGeometry);
+DEFINE_SAFE_INCREMENT(uint64);
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -539,10 +576,39 @@ float evaluateBezierCurveDistance(const vec3f& p, const float t,
     return sqrtf(dx * dx + dy * dy + dz * dz) - thick;
 }
 
-inline float sdCubicBezier(const vec3f& p, const vec3f p0, const vec3f p1,
-                           const vec3f p2, const vec3f p3, const float r0,
-                           const float r1, const float r2, const float r3)
+inline float sdCubicBezier(const vec3f& p, const uniform SDFGeometry& primitive)
 {
+    CubicBezierSpline spline;
+    spline.control_points[0] = primitive.p0;
+    spline.control_points[1] = primitive.center;
+    spline.control_points[2] = primitive.p1;
+    spline.control_points[3] = primitive.p2;
+
+    spline.polynomial_form[0] = primitive.polynomial_form[0];
+    spline.polynomial_form[1] = primitive.polynomial_form[1];
+    spline.polynomial_form[2] = primitive.polynomial_form[2];
+    spline.polynomial_form[3] = primitive.polynomial_form[3];
+
+    spline.derivative[0] = primitive.derivative[0];
+    spline.derivative[1] = primitive.derivative[1];
+    spline.derivative[2] = primitive.derivative[2];
+
+    spline.precomputed_coefficients[0] = primitive.precomputed_coefficients[0];
+    spline.precomputed_coefficients[1] = primitive.precomputed_coefficients[1];
+    spline.precomputed_coefficients[2] = primitive.precomputed_coefficients[2];
+    spline.precomputed_coefficients[3] = primitive.precomputed_coefficients[3];
+    spline.precomputed_coefficients[4] = primitive.precomputed_coefficients[4];
+    spline.precomputed_coefficients[5] = primitive.precomputed_coefficients[5];
+
+    spline.inv_leading_coefficient = primitive.inv_leading_coefficient;
+
+    QuinticSolver solver;
+    vec3f closest;
+
+    return ClosestPointToSpline(spline, solver, p, closest);
+#if 0
+    return -1.f;
+
     const int num_samples = 10;
     const float step = 1.f / num_samples;
 
@@ -600,7 +666,7 @@ inline float sdCubicBezier(const vec3f& p, const vec3f p0, const vec3f p1,
     }
 
     return d;
-
+#endif
     //    const float dx = p.x - pT.x;
     //    const float dy = p.y - pT.y;
     //    const float dz = p.z - pT.z;
@@ -639,44 +705,6 @@ inline varying bool intersectBox(Ray& ray, const vec3f aabbMin,
     t1 = min(t.x, t.y);
     return (t0 <= t1);
 }
-
-/////////////////////////////////////////////////////////////////////////////
-
-// NOTE: This layout must match exactly the 'SDFGeometry' struct in
-// 'SDFGeometry.h'
-struct SDFGeometry
-{
-    uint64 userData;
-    vec3f center;
-    vec3f p0;
-    vec3f p1;
-    vec3f p2;
-    float radius;
-    float radius_mid;
-    float radius_tip;
-    float radius_p2;
-    uint64 neighboursIndex;
-    uint8 numNeighbours;
-    uint8 type;
-    vec3f derivative[3];
-    float inv_leading_coefficient;
-    float precomputed_coefficients[6];
-    vec3f polynomial_form[4];
-};
-
-struct SDFGeometries
-{
-    uniform Geometry super;
-
-    uniform SDFGeometry* uniform geometries;
-    uniform uint64* uniform geometryRefs;
-    uniform uint64* uniform neighbours;
-
-    uniform bool useSafeIncrement;
-};
-
-DEFINE_SAFE_INCREMENT(SDFGeometry);
-DEFINE_SAFE_INCREMENT(uint64);
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -814,10 +842,7 @@ inline float calcDistance(const uniform SDFGeometry& primitive, const vec3f& p)
     }
     if (primitive.type == SDF_TYPE_CUBIC_BEZIER)
     {
-        return sdCubicBezier(p, primitive.p0, primitive.center, primitive.p1,
-                             primitive.p2, primitive.radius,
-                             primitive.radius_mid, primitive.radius_tip,
-                             primitive.radius_p2);
+        return sdCubicBezier(p, primitive);
     }
 
     return -1.0;
