@@ -6,6 +6,7 @@
 set(BRAYNSCOMMON_SOURCES
   ImageManager.cpp
   PropertyMap.cpp
+  geometry/SDFGeometry.cpp
   input/KeyboardHandler.cpp
   light/DirectionalLight.cpp
   light/Light.cpp

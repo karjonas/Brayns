@@ -47,126 +47,32 @@ struct SDFGeometry
     uint64_t neighboursIndex = 0;
     uint8_t numNeighbours = 0;
     SDFType type;
+    std::array<Vector3f, 3> derivative;
+    float inv_leading_coefficient = 0.f;
+    std::array<float, 6> precomputed_coefficients{
+        {0.f, 0.f, 0.f, 0.f, 0.f, 0.f}};
 };
 
-inline SDFGeometry createSDFSphere(const Vector3f& center, const float radius,
-                                   const uint64_t data = 0)
-{
-    SDFGeometry geom;
-    geom.userData = data;
-    geom.center = center;
-    geom.radius = radius;
-    geom.type = SDFType::Sphere;
-    return geom;
-}
+SDFGeometry createSDFSphere(const Vector3f& center, const float radius,
+                            const uint64_t data = 0);
 
-inline SDFGeometry createSDFPill(const Vector3f& p0, const Vector3f& p1,
-                                 const float radius, const uint64_t data = 0)
-{
-    SDFGeometry geom;
-    geom.userData = data;
-    geom.p0 = p0;
-    geom.p1 = p1;
-    geom.radius = radius;
-    geom.type = SDFType::Pill;
-    return geom;
-}
+SDFGeometry createSDFPill(const Vector3f& p0, const Vector3f& p1,
+                          const float radius, const uint64_t data = 0);
 
-inline SDFGeometry createSDFConePill(const Vector3f& p0, const Vector3f& p1,
+SDFGeometry createSDFConePill(const Vector3f& p0, const Vector3f& p1,
+                              const float radiusBottom, const float radiusTip,
+                              const uint64_t data = 0);
+
+SDFGeometry createSDFConePillSigmoid(const Vector3f& p0, const Vector3f& p1,
                                      const float radiusBottom,
                                      const float radiusTip,
-                                     const uint64_t data = 0)
-{
-    SDFGeometry geom;
-    geom.userData = data;
-    geom.p0 = p0;
-    geom.p1 = p1;
-    geom.radius = radiusBottom;
-    geom.radius_tip = radiusTip;
+                                     const uint64_t data = 0);
 
-    if (radiusBottom < radiusTip)
-    {
-        std::swap(geom.p0, geom.p1);
-        std::swap(geom.radius, geom.radius_tip);
-    }
+SDFGeometry createSDFCubicBezier(const Vector3f& p0, const Vector3f& p1,
+                                 const Vector3f& p2, const Vector3f& p3,
+                                 const float r0, const float r1, const float r2,
+                                 const float r3, const uint64_t data = 0);
 
-    geom.type = SDFType::ConePill;
-    return geom;
-}
-
-inline SDFGeometry createSDFConePillSigmoid(const Vector3f& p0,
-                                            const Vector3f& p1,
-                                            const float radiusBottom,
-                                            const float radiusTip,
-                                            const uint64_t data = 0)
-{
-    SDFGeometry geom = createSDFConePill(p0, p1, radiusBottom, radiusTip, data);
-    geom.type = SDFType::ConePillSigmoid;
-    return geom;
-}
-
-inline SDFGeometry createSDFCubicBezier(const Vector3f& p0, const Vector3f& p1,
-                                        const Vector3f& p2, const Vector3f& p3,
-                                        const float r0, const float r1,
-                                        const float r2, const float r3,
-                                        const uint64_t data = 0)
-{
-    SDFGeometry geom;
-    geom.userData = data;
-    geom.p0 = p0;
-    geom.center = p1;
-    geom.p1 = p2;
-    geom.p2 = p3;
-    geom.radius = r0;
-    geom.raidus_mid = r1;
-    geom.radius_tip = r2;
-    geom.radius_p2 = r3;
-    geom.type = SDFType::CubicBezier;
-    return geom;
-}
-
-inline Boxd getSDFBoundingBox(const SDFGeometry& geom)
-{
-    Boxd bounds;
-    switch (geom.type)
-    {
-    case brayns::SDFType::Sphere:
-    {
-        bounds.merge(geom.center - Vector3f(geom.radius));
-        bounds.merge(geom.center + Vector3f(geom.radius));
-        break;
-    }
-    case brayns::SDFType::Pill:
-    {
-        bounds.merge(geom.p0 - Vector3f(geom.radius));
-        bounds.merge(geom.p0 + Vector3f(geom.radius));
-        bounds.merge(geom.p1 - Vector3f(geom.radius));
-        bounds.merge(geom.p1 + Vector3f(geom.radius));
-        break;
-    }
-    case brayns::SDFType::ConePill:
-    case brayns::SDFType::ConePillSigmoid:
-    {
-        bounds.merge(geom.p0 - Vector3f(geom.radius));
-        bounds.merge(geom.p0 + Vector3f(geom.radius));
-        bounds.merge(geom.p1 - Vector3f(geom.radius_tip));
-        bounds.merge(geom.p1 + Vector3f(geom.radius_tip));
-        break;
-    }
-    case brayns::SDFType::CubicBezier:
-    {
-        const float max_radius =
-            std::max(geom.radius_tip, std::max(geom.radius, geom.raidus_mid));
-        bounds.merge(geom.p0 - Vector3f(max_radius));
-        bounds.merge(geom.p0 + Vector3f(max_radius));
-        bounds.merge(geom.p1 - Vector3f(max_radius));
-        bounds.merge(geom.p1 + Vector3f(max_radius));
-        break;
-    }
-    default:
-        throw std::runtime_error("No bounds found for SDF type.");
-    }
-    return bounds;
-}
+Boxd getSDFBoundingBox(const SDFGeometry& geom);
 
 } // namespace brayns
