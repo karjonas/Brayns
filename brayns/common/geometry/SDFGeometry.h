@@ -41,7 +41,7 @@ struct SDFGeometry
     Vector3f p1;
     Vector3f p2;
     float radius = -1.f;
-    float raidus_mid = -1.f;
+    float radius_mid = -1.f;
     float radius_tip = -1.f;
     float radius_p2 = -1.f;
     uint64_t neighboursIndex = 0;
@@ -51,6 +51,7 @@ struct SDFGeometry
     float inv_leading_coefficient = 0.f;
     std::array<float, 6> precomputed_coefficients{
         {0.f, 0.f, 0.f, 0.f, 0.f, 0.f}};
+    std::array<Vector3f, 4> polynomial_form;
 };
 
 SDFGeometry createSDFSphere(const Vector3f& center, const float radius,

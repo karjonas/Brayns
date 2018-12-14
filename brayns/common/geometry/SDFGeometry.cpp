@@ -87,7 +87,7 @@ SDFGeometry createSDFCubicBezier(const Vector3f& p0, const Vector3f& p1,
     geom.p1 = p2;
     geom.p2 = p3;
     geom.radius = r0;
-    geom.raidus_mid = r1;
+    geom.radius_mid = r1;
     geom.radius_tip = r2;
     geom.radius_p2 = r3;
     geom.type = SDFType::CubicBezier;
@@ -100,10 +100,10 @@ SDFGeometry createSDFCubicBezier(const Vector3f& p0, const Vector3f& p1,
     const auto s = -3.f * p0 + 3.f * p1;
     const auto& v = p0;
 
-    //   geom.polynomial_form_[0] = n;
-    //   geom.polynomial_form_[1] = r;
-    //   geom.polynomial_form_[2] = s;
-    //   geom.polynomial_form_[3] = v; // p0
+    geom.polynomial_form[0] = n;
+    geom.polynomial_form[1] = r;
+    geom.polynomial_form[2] = s;
+    geom.polynomial_form[3] = v; // p0
 
     // The derivative which is a quadratic equation.
     const auto j = 3.f * n;
@@ -161,7 +161,7 @@ Boxd getSDFBoundingBox(const SDFGeometry& geom)
     case brayns::SDFType::CubicBezier:
     {
         const float max_radius =
-            std::max(geom.radius_tip, std::max(geom.radius, geom.raidus_mid));
+            std::max(geom.radius_tip, std::max(geom.radius, geom.radius_mid));
         bounds.merge(geom.p0 - Vector3f(max_radius));
         bounds.merge(geom.p0 + Vector3f(max_radius));
         bounds.merge(geom.p1 - Vector3f(max_radius));

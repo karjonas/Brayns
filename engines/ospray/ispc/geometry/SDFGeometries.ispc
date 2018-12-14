@@ -43,6 +43,403 @@
 
 #define SDF_EPSILON 0.000001
 
+#define kTolerance 0.000001
+#define STURM_SIZE 21
+
+#define MAGIC_FAIL 1234567.f
+
+/////////////////////////////////////////////////////////////////////////////
+
+struct SturmInterval
+{
+    float min;
+    float max;
+    int sign_min;       // Sign changes for the minimum bound.
+    int sign_max;       // Sign changes for the max bound.
+    int id;             // Id shared between this interval and its sibling.
+    int expected_roots; // Total roots expected in this interval and its
+                        // sibling.
+};
+
+SturmInterval createSturmInterval(float _min, float _max, int _sign_min,
+                                  int _sign_max, int _id, int _roots)
+{
+    SturmInterval s;
+    s.min = _min;
+    s.max = _max;
+    s.sign_min = _sign_min;
+    s.sign_max = _sign_max;
+    s.id = _id;
+    s.expected_roots = _roots;
+    return s;
+}
+
+struct Interval
+{
+    float min;
+    float max;
+};
+
+Interval toInterval(const SturmInterval& si)
+{
+    Interval i;
+    i.min = si.min;
+    i.max = si.max;
+    return i;
+}
+
+struct SturmSequence5
+{
+    float data[STURM_SIZE];
+};
+
+struct QuinticSolver
+{
+    //    float tolerance_;
+    SturmInterval interval_storage[100]; // FIXME, find proper size
+    uint32 num_stored;
+    uint32 max_divisions;
+};
+
+struct Polynomial5
+{
+    float equation[6];
+};
+
+struct CubicBezierSpline
+{
+    vec3f control_points[4];
+    vec3f polynomial_form[4]; // Coefficents derived from the control points.
+    vec3f derivative[3];
+    float precomputed_coefficients[6];
+    float inv_leading_coefficient;
+};
+
+vec3f EvaluateAt(const CubicBezierSpline& s, const float t)
+{
+    // The polynomial for is faster at evaluating than the parametric.
+    return t * (s.polynomial_form[2] +
+                t * (s.polynomial_form[1] + t * s.polynomial_form[0])) +
+           s.polynomial_form[3];
+}
+
+// Helper to solve a polynomial of a given degree.
+float EvaluatePolynomial(const float* polynomial, const int degree,
+                         const float t)
+{
+    float result = 0.f;
+    for (int i = 0; i < degree; ++i)
+    {
+        result += polynomial[i];
+        result *= t;
+    }
+    result += polynomial[degree];
+
+    return result;
+}
+
+// Helper to solve a polynomial of a given degree.
+float EvaluatePolynomial(const varying float* varying polynomial,
+                         const int degree, const float t)
+{
+    float result = 0.f;
+    for (int i = 0; i < degree; ++i)
+    {
+        result += polynomial[i];
+        result *= t;
+    }
+    result += polynomial[degree];
+
+    return result;
+}
+
+float EvaluatePolynomial(const varying float* uniform polynomial,
+                         const int degree, const float t)
+{
+    float result = 0.f;
+    for (int i = 0; i < degree; ++i)
+    {
+        result += polynomial[i];
+        result *= t;
+    }
+    result += polynomial[degree];
+
+    return result;
+}
+
+// Input: polynomial with a leading coefficient of 1.0.
+float EvaluateNormedEquation(const Polynomial5& polynomial, const float t)
+{
+    return EvaluatePolynomial(&polynomial.equation[0], 5, t);
+}
+
+void BuildSturmSequence(QuinticSolver& solver, const Polynomial5& polynomial,
+                        SturmSequence5& out_sturm_polynomials)
+{
+    const int degree = 5;
+    double sturm_polys[STURM_SIZE];
+
+    for (int i = 0; i <= degree; ++i)
+    {
+        sturm_polys[i] = polynomial.equation[i];
+        sturm_polys[degree + 1 + i] =
+            (degree - i) * sturm_polys[i]; // derivative
+    }
+
+    int index = 6;
+    varying double* element = &sturm_polys[6 + 5]; // start of third polynomial
+    for (int i = 2; i <= degree; ++i)
+    {
+        const int poly = degree - i;
+        varying double* p1 = &sturm_polys[index];
+        varying double* p2 = &sturm_polys[index - (poly + 3)];
+        index += poly + 2;
+
+        // long polynomial division
+        const double remainder_coefficeint = (double)p2[0] / p1[0];
+        const double remainder_sum =
+            (p2[1] - remainder_coefficeint * p1[1]) / p1[0];
+        for (int c = 0; c <= poly; ++c, ++element)
+        {
+            double coefficient = remainder_sum * p1[c + 1] - p2[c + 2];
+            if (c != poly)
+            {
+                coefficient += remainder_coefficeint * p1[c + 2];
+            }
+
+            *element = coefficient;
+        }
+    }
+
+    for (int i = 0; i < STURM_SIZE; ++i)
+    {
+        out_sturm_polynomials.data[i] = (float)sturm_polys[i];
+    }
+}
+
+int CountSturmSignChanges(QuinticSolver& solver,
+                          const SturmSequence5& sturm_polynomials,
+                          const float t)
+{
+    int sign_changes = 0;
+    int index = STURM_SIZE - 1;
+    bool previous_positive = sturm_polynomials.data[index] >= 0.f;
+    float solution = 0.f;
+    for (int i = 1; i <= 5; ++i)
+    {
+        index -= i + 1;
+        const varying float* varying seq = &sturm_polynomials.data[index];
+        solution = EvaluatePolynomial(seq, i, t);
+        bool curr_positive = solution >= 0.f;
+        sign_changes += curr_positive != previous_positive;
+        previous_positive = curr_positive;
+    }
+
+    return sign_changes;
+}
+
+float SolveBisection(QuinticSolver& solver, const Polynomial5& polynomial,
+                     const float interval_min, const float interval_max)
+{
+    // Only intervals of where p(min) < 0 and p(max) > 0 can contain a solution.
+    // This is equivalent to the distance function from the given position to
+    // the solution having a negative slope at the min and a positive slope at
+    // max.
+    if (EvaluateNormedEquation(polynomial, interval_min) > 0)
+    {
+        return MAGIC_FAIL;
+    }
+    if (EvaluateNormedEquation(polynomial, interval_max) < 0)
+    {
+        return MAGIC_FAIL;
+    }
+
+    const int max_iterations = solver.max_divisions;
+    float bisection_min = interval_min;
+    float bisection_max = interval_max;
+    for (int i = 0; i < max_iterations; ++i)
+    {
+        const float mid = (bisection_max + bisection_min) / 2.f;
+
+        const float r = EvaluateNormedEquation(polynomial, mid);
+        const bool r_positive = r >= 0.0f;
+        if (r_positive)
+        {
+            if (r >= -kTolerance)
+            {
+                return mid;
+            }
+            bisection_min = mid;
+        }
+        else
+        {
+            if (r <= kTolerance)
+            {
+                return mid;
+            }
+            bisection_max = mid;
+        }
+    }
+
+    return bisection_min;
+}
+
+int Solve(QuinticSolver& solver, Polynomial5 polynomial,
+          varying float* uniform out_roots /*[5]*/, const float interval_min,
+          const float interval_max)
+{
+    SturmSequence5 sturm_polynomials;
+    BuildSturmSequence(solver, polynomial, sturm_polynomials);
+
+    // Set up the first interval.
+    solver.num_stored = 0;
+    int sign_min =
+        CountSturmSignChanges(solver, sturm_polynomials, interval_min);
+    int sign_max =
+        CountSturmSignChanges(solver, sturm_polynomials, interval_max);
+    const int total_roots = sign_min - sign_max;
+    int id = 0;
+
+    solver.interval_storage[solver.num_stored] =
+        createSturmInterval(interval_min, interval_max, sign_min, sign_max,
+                            id++, total_roots);
+    solver.num_stored += 1;
+
+    Interval root_intervals[5];
+    int found_roots = 0;
+
+    // Isolate roots
+    while (solver.num_stored > 0 && total_roots != found_roots)
+    {
+        SturmInterval i = solver.interval_storage[solver.num_stored - 1];
+        solver.num_stored -= 1;
+
+        int num_roots = i.sign_min - i.sign_max;
+
+        if (num_roots <= 0)
+        {
+            if (!solver.num_stored == 0 &&
+                solver.interval_storage[solver.num_stored - 1].id == i.id)
+            {
+                i = solver.interval_storage[solver.num_stored - 1];
+                solver.num_stored -= 1;
+                num_roots = i.expected_roots;
+            }
+            else
+            {
+                continue;
+            }
+        }
+
+        // Prune sibling intervals based on the results of the current interval.
+        if (num_roots == i.expected_roots && (!solver.num_stored == 0) &&
+            solver.interval_storage[solver.num_stored - 1].id == i.id)
+        {
+            solver.num_stored -= 1;
+        }
+        else if (num_roots == i.expected_roots - 1 &&
+                 (solver.num_stored != 0) &&
+                 solver.interval_storage[solver.num_stored - 1].id ==
+                     i.id) // This case was a biggest perf improvemnt.
+        {
+            const SturmInterval si_tmp =
+                solver.interval_storage[solver.num_stored - 1];
+            root_intervals[found_roots++] = toInterval(si_tmp);
+            solver.num_stored -= 1;
+        }
+
+        if (num_roots == 1)
+        {
+            root_intervals[found_roots++] = toInterval(i);
+        }
+        else
+        {
+            float mid = (i.min + i.max) / 2.f;
+            if (mid - i.min <= kTolerance)
+            {
+                root_intervals[found_roots++] = toInterval(i);
+            }
+            else
+            {
+                // Divide the current interval and search deeper.
+                const int sign_mid =
+                    CountSturmSignChanges(solver, sturm_polynomials, mid);
+                solver.interval_storage[solver.num_stored] =
+                    createSturmInterval(i.min, mid, i.sign_min, sign_mid, id,
+                                        num_roots);
+                solver.num_stored += 1;
+                solver.interval_storage[solver.num_stored] =
+                    createSturmInterval(mid, i.max, sign_mid, i.sign_max, id,
+                                        num_roots);
+                solver.num_stored += 1;
+                ++id;
+            }
+        }
+    }
+
+    int num_real_roots = 0;
+    for (int i = 0; i < found_roots; ++i)
+    {
+        const Interval interval = root_intervals[i];
+        float root =
+            SolveBisection(solver, polynomial, interval.min, interval.max);
+        if (root != MAGIC_FAIL)
+        {
+            out_roots[num_real_roots++] = root;
+        }
+    }
+
+    return num_real_roots;
+}
+
+float ClosestPointToSpline(const CubicBezierSpline& spline,
+                           QuinticSolver& solver, const vec3f& position,
+                           vec3f& closest)
+{
+    Polynomial5 quintic;
+    for (int i = 0; i < 6; i++)
+    {
+        quintic.equation[i] = spline.precomputed_coefficients[i];
+    }
+
+    for (int i = 0; i < 3; ++i)
+    {
+        quintic.equation[3 + i] += dot(position, spline.derivative[i]) *
+                                   spline.inv_leading_coefficient;
+    }
+
+    float realRoots[5];
+    const int roots =
+        Solve(solver, quintic, &realRoots[0], kTolerance, 1.f - kTolerance);
+
+    // Test the first control point.
+    vec3f min_position = spline.control_points[0];
+    float min_dist_sq = length(position - min_position);
+
+    // Test the roots.
+    for (int i = 0; i < roots; ++i)
+    {
+        const vec3f root_position = EvaluateAt(spline, realRoots[i]);
+        const float root_dist_sq = length(position - root_position);
+        if (root_dist_sq < min_dist_sq)
+        {
+            min_dist_sq = root_dist_sq;
+            min_position = root_position;
+        }
+    }
+
+    // Test the last control point.
+    const float dist_sq = length(position - spline.control_points[3]);
+    if (dist_sq < min_dist_sq)
+    {
+        min_dist_sq = dist_sq;
+        min_position = spline.control_points[3];
+    }
+
+    closest = min_position;
+    return min_dist_sq;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 
 // https://en.wikipedia.org/wiki/Smoothstep
@@ -261,6 +658,10 @@ struct SDFGeometry
     uint64 neighboursIndex;
     uint8 numNeighbours;
     uint8 type;
+    vec3f derivative[3];
+    float inv_leading_coefficient;
+    float precomputed_coefficients[6];
+    vec3f polynomial_form[4];
 };
 
 struct SDFGeometries
