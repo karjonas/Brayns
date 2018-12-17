@@ -224,7 +224,7 @@ void BuildSturmSequence(QuinticSolver& solver, const Polynomial5& polynomial,
     }
 
     int index = 6;
-    varying double* element = &sturm_polys[6 + 5]; // start of third polynomial
+    int element_idx = 6 + 5; // start of third polynomial
     for (int i = 2; i <= degree; ++i)
     {
         const int poly = degree - i;
@@ -236,7 +236,7 @@ void BuildSturmSequence(QuinticSolver& solver, const Polynomial5& polynomial,
         const double remainder_coefficeint = (double)p2[0] / p1[0];
         const double remainder_sum =
             (p2[1] - remainder_coefficeint * p1[1]) / p1[0];
-        for (int c = 0; c <= poly; ++c, ++element)
+        for (int c = 0; c <= poly; ++c, ++element_idx)
         {
             double coefficient = remainder_sum * p1[c + 1] - p2[c + 2];
             if (c != poly)
@@ -244,7 +244,7 @@ void BuildSturmSequence(QuinticSolver& solver, const Polynomial5& polynomial,
                 coefficient += remainder_coefficeint * p1[c + 2];
             }
 
-            *element = coefficient;
+            sturm_polys[element_idx] = coefficient;
         }
     }
 
@@ -605,7 +605,9 @@ inline float sdCubicBezier(const vec3f& p, const uniform SDFGeometry& primitive)
     QuinticSolver solver;
     vec3f closest;
 
-    return ClosestPointToSpline(spline, solver, p, closest);
+    ClosestPointToSpline(spline, solver, p, closest);
+
+    return length(p - closest) - 1.0f;
 #if 0
     return -1.f;
 
