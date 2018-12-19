@@ -656,10 +656,10 @@ void Scene::buildDefault()
 
     const Vector3f WHITE = {1.f, 1.f, 1.f};
 
-    Vector3f p00{74.f, 100.f, 0.f}; // Spline 1
-    Vector3f p01{62.f, 88.f, 0.f};
-    Vector3f p02{136.f, 48.f, 0.f};
-    Vector3f p03{139.f, 69.f, 0.f};
+    Vector3f p00{50.f, 100.f, 0.f}; // Spline 1
+    Vector3f p01{100.f, 100.f, 0.f};
+    Vector3f p02{150.f, 100.f, 0.f};
+    Vector3f p03{200.f, 100.f, 0.f};
 
     Vector3f p10{139.f, 69.f, 0.f}; // Spline 2
     Vector3f p11{171.f, 127.f, 0.f};
@@ -680,14 +680,14 @@ void Scene::buildDefault()
     {
         auto geom0 =
             createSDFCubicBezier(p00, p01, p02, p03, 4.f, 20.0f, 2.5f, 4.0f);
-        auto geom1 =
-            createSDFCubicBezier(p10, p11, p12, p13, 4.f, 20.0f, 2.5f, 4.0f);
-        auto geom2 =
-            createSDFCubicBezier(p20, p21, p22, p23, 4.f, 20.0f, 2.5f, 4.0f);
+        // auto geom1 =
+        //     createSDFCubicBezier(p10, p11, p12, p13, 4.f, 20.0f, 2.5f, 4.0f);
+        // auto geom2 =
+        //     createSDFCubicBezier(p20, p21, p22, p23, 4.f, 20.0f, 2.5f, 4.0f);
 
         model->addSDFGeometry(materialId, geom0, {});
-        model->addSDFGeometry(materialId, geom1, {});
-        model->addSDFGeometry(materialId, geom2, {});
+        // model->addSDFGeometry(materialId, geom1, {});
+        // model->addSDFGeometry(materialId, geom2, {});
     }
     addModel(
         std::make_shared<ModelDescriptor>(std::move(model), "DefaultScene"));

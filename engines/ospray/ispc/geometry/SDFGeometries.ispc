@@ -90,13 +90,13 @@ DEFINE_SAFE_INCREMENT(uint64);
 
 struct SturmInterval
 {
-    float min;
-    float max;
-    int sign_min;       // Sign changes for the minimum bound.
-    int sign_max;       // Sign changes for the max bound.
-    int id;             // Id shared between this interval and its sibling.
-    int expected_roots; // Total roots expected in this interval and its
-                        // sibling.
+    varying float min;
+    varying float max;
+    varying int sign_min; // Sign changes for the minimum bound.
+    varying int sign_max; // Sign changes for the max bound.
+    varying int id;       // Id shared between this interval and its sibling.
+    varying int expected_roots; // Total roots expected in this interval and its
+                                // sibling.
 };
 
 SturmInterval createSturmInterval(float _min, float _max, int _sign_min,
@@ -114,8 +114,8 @@ SturmInterval createSturmInterval(float _min, float _max, int _sign_min,
 
 struct Interval
 {
-    float min;
-    float max;
+    varying float min;
+    varying float max;
 };
 
 Interval toInterval(const SturmInterval& si)
@@ -134,26 +134,32 @@ struct SturmSequence5
 struct QuinticSolver
 {
     //    float tolerance_;
-    SturmInterval interval_storage[100]; // FIXME, find proper size
-    uint32 num_stored;
-    uint32 max_divisions;
+    varying SturmInterval interval_storage[100]; // FIXME, find proper size
+    varying uint32 num_stored;
+    varying uint32 max_divisions;
 };
 
 struct Polynomial5
 {
-    float equation[6];
+    varying float equation[6];
+};
+
+struct OutRoots
+{
+    varying float data[5];
 };
 
 struct CubicBezierSpline
 {
-    vec3f control_points[4];
-    vec3f polynomial_form[4]; // Coefficents derived from the control points.
-    vec3f derivative[3];
-    float precomputed_coefficients[6];
-    float inv_leading_coefficient;
+    uniform vec3f control_points[4];
+    uniform vec3f polynomial_form[4]; // Coefficents derived from the control
+                                      // points.
+    uniform vec3f derivative[3];
+    uniform float precomputed_coefficients[6];
+    uniform float inv_leading_coefficient;
 };
 
-vec3f EvaluateAt(const CubicBezierSpline& s, const float t)
+unmasked vec3f EvaluateAt(const uniform CubicBezierSpline& s, const float t)
 {
     // The polynomial for is faster at evaluating than the parametric.
     return t * (s.polynomial_form[2] +
@@ -162,57 +168,44 @@ vec3f EvaluateAt(const CubicBezierSpline& s, const float t)
 }
 
 // Helper to solve a polynomial of a given degree.
-float EvaluatePolynomial(const float* polynomial, const int degree,
-                         const float t)
+float EvaluatePolynomial(uniform Polynomial5& polynomial, const int start,
+                         const int degree, const float t)
 {
     float result = 0.f;
-    for (int i = 0; i < degree; ++i)
+    for (int i = start; i < start + degree; ++i)
     {
-        result += polynomial[i];
+        result += polynomial.equation[i];
         result *= t;
     }
-    result += polynomial[degree];
+    result += polynomial.equation[degree];
 
     return result;
 }
 
 // Helper to solve a polynomial of a given degree.
-float EvaluatePolynomial(const varying float* varying polynomial,
+float EvaluatePolynomial(uniform SturmSequence5& polynomial, const int start,
                          const int degree, const float t)
 {
     float result = 0.f;
-    for (int i = 0; i < degree; ++i)
+    for (int i = start; i < start + degree; ++i)
     {
-        result += polynomial[i];
+        result += polynomial.data[i];
         result *= t;
     }
-    result += polynomial[degree];
-
-    return result;
-}
-
-float EvaluatePolynomial(const varying float* uniform polynomial,
-                         const int degree, const float t)
-{
-    float result = 0.f;
-    for (int i = 0; i < degree; ++i)
-    {
-        result += polynomial[i];
-        result *= t;
-    }
-    result += polynomial[degree];
+    result += polynomial.data[degree];
 
     return result;
 }
 
 // Input: polynomial with a leading coefficient of 1.0.
-float EvaluateNormedEquation(const Polynomial5& polynomial, const float t)
+float EvaluateNormedEquation(uniform Polynomial5& polynomial, const float t)
 {
-    return EvaluatePolynomial(&polynomial.equation[0], 5, t);
+    return EvaluatePolynomial(polynomial, 0, 5, t);
 }
 
-void BuildSturmSequence(QuinticSolver& solver, const Polynomial5& polynomial,
-                        SturmSequence5& out_sturm_polynomials)
+void BuildSturmSequence(uniform QuinticSolver& solver,
+                        uniform Polynomial5& polynomial,
+                        uniform SturmSequence5& out_sturm_polynomials)
 {
     const int degree = 5;
     double sturm_polys[STURM_SIZE];
@@ -259,8 +252,7 @@ void BuildSturmSequence(QuinticSolver& solver, const Polynomial5& polynomial,
     }
 }
 
-int CountSturmSignChanges(QuinticSolver& solver,
-                          const SturmSequence5& sturm_polynomials,
+int CountSturmSignChanges(uniform SturmSequence5& sturm_polynomials,
                           const float t)
 {
     int sign_changes = 0;
@@ -270,8 +262,7 @@ int CountSturmSignChanges(QuinticSolver& solver,
     for (int i = 1; i <= 5; ++i)
     {
         index -= i + 1;
-        const varying float* varying seq = &sturm_polynomials.data[index];
-        solution = EvaluatePolynomial(seq, i, t);
+        solution = EvaluatePolynomial(sturm_polynomials, index, i, t);
         bool curr_positive = solution >= 0.f;
         sign_changes += curr_positive != previous_positive;
         previous_positive = curr_positive;
@@ -280,8 +271,9 @@ int CountSturmSignChanges(QuinticSolver& solver,
     return sign_changes;
 }
 
-float SolveBisection(QuinticSolver& solver, const Polynomial5& polynomial,
-                     const float interval_min, const float interval_max)
+float SolveBisection(uniform QuinticSolver& solver,
+                     uniform Polynomial5& polynomial, const float interval_min,
+                     const float interval_max)
 {
     // Only intervals of where p(min) < 0 and p(max) > 0 can contain a solution.
     // This is equivalent to the distance function from the given position to
@@ -326,19 +318,17 @@ float SolveBisection(QuinticSolver& solver, const Polynomial5& polynomial,
     return bisection_min;
 }
 
-int Solve(QuinticSolver& solver, Polynomial5 polynomial,
-          varying float* uniform out_roots /*[5]*/, const float interval_min,
+int Solve(uniform QuinticSolver& solver, uniform Polynomial5& polynomial,
+          uniform OutRoots& out_roots, const float interval_min,
           const float interval_max)
 {
-    SturmSequence5 sturm_polynomials;
+    uniform SturmSequence5 sturm_polynomials;
     BuildSturmSequence(solver, polynomial, sturm_polynomials);
 
     // Set up the first interval.
     solver.num_stored = 0;
-    int sign_min =
-        CountSturmSignChanges(solver, sturm_polynomials, interval_min);
-    int sign_max =
-        CountSturmSignChanges(solver, sturm_polynomials, interval_max);
+    int sign_min = CountSturmSignChanges(sturm_polynomials, interval_min);
+    int sign_max = CountSturmSignChanges(sturm_polynomials, interval_max);
     const int total_roots = sign_min - sign_max;
     int id = 0;
 
@@ -405,7 +395,7 @@ int Solve(QuinticSolver& solver, Polynomial5 polynomial,
             {
                 // Divide the current interval and search deeper.
                 const int sign_mid =
-                    CountSturmSignChanges(solver, sturm_polynomials, mid);
+                    CountSturmSignChanges(sturm_polynomials, mid);
                 solver.interval_storage[solver.num_stored] =
                     createSturmInterval(i.min, mid, i.sign_min, sign_mid, id,
                                         num_roots);
@@ -427,18 +417,18 @@ int Solve(QuinticSolver& solver, Polynomial5 polynomial,
             SolveBisection(solver, polynomial, interval.min, interval.max);
         if (root != MAGIC_FAIL)
         {
-            out_roots[num_real_roots++] = root;
+            out_roots.data[num_real_roots++] = root;
         }
     }
 
     return num_real_roots;
 }
 
-float ClosestPointToSpline(const CubicBezierSpline& spline,
-                           QuinticSolver& solver, const vec3f& position,
+float ClosestPointToSpline(const uniform CubicBezierSpline& spline,
+                           uniform QuinticSolver& solver, const vec3f& position,
                            vec3f& closest)
 {
-    Polynomial5 quintic;
+    uniform Polynomial5 quintic;
     for (int i = 0; i < 6; i++)
     {
         quintic.equation[i] = spline.precomputed_coefficients[i];
@@ -450,9 +440,9 @@ float ClosestPointToSpline(const CubicBezierSpline& spline,
                                    spline.inv_leading_coefficient;
     }
 
-    float realRoots[5];
+    uniform OutRoots realRoots;
     const int roots =
-        Solve(solver, quintic, &realRoots[0], kTolerance, 1.f - kTolerance);
+        Solve(solver, quintic, realRoots, kTolerance, 1.f - kTolerance);
 
     // Test the first control point.
     vec3f min_position = spline.control_points[0];
@@ -461,7 +451,7 @@ float ClosestPointToSpline(const CubicBezierSpline& spline,
     // Test the roots.
     for (int i = 0; i < roots; ++i)
     {
-        const vec3f root_position = EvaluateAt(spline, realRoots[i]);
+        const vec3f root_position = EvaluateAt(spline, realRoots.data[i]);
         const float root_dist_sq = length(position - root_position);
         if (root_dist_sq < min_dist_sq)
         {
@@ -583,7 +573,7 @@ float evaluateBezierCurveDistance(const vec3f& p, const float t,
 
 inline float sdCubicBezier(const vec3f& p, const uniform SDFGeometry& primitive)
 {
-    CubicBezierSpline spline;
+    uniform CubicBezierSpline spline;
     spline.control_points[0] = primitive.p0;
     spline.control_points[1] = primitive.center;
     spline.control_points[2] = primitive.p1;
@@ -607,14 +597,14 @@ inline float sdCubicBezier(const vec3f& p, const uniform SDFGeometry& primitive)
 
     spline.inv_leading_coefficient = primitive.inv_leading_coefficient;
 
-    QuinticSolver solver;
+    uniform QuinticSolver solver;
     solver.max_divisions = 1 + (uint32)(logf(1.f / kTolerance) / M_LN2);
     solver.num_stored = 0;
     vec3f closest;
 
-    ClosestPointToSpline(spline, solver, p, closest);
+    const float d = ClosestPointToSpline(spline, solver, p, closest);
 
-    return length(p - closest) - 1.0f;
+    return d - 1.0f;
 #if 0
     return -1.f;
 
