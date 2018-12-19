@@ -47,6 +47,7 @@
 #define STURM_SIZE 21
 
 #define MAGIC_FAIL 1234567.f
+#define M_LN2 0.69314718055994530942
 /////////////////////////////////////////////////////////////////////////////
 
 // NOTE: This layout must match exactly the 'SDFGeometry' struct in
@@ -228,20 +229,24 @@ void BuildSturmSequence(QuinticSolver& solver, const Polynomial5& polynomial,
     for (int i = 2; i <= degree; ++i)
     {
         const int poly = degree - i;
-        varying double* p1 = &sturm_polys[index];
-        varying double* p2 = &sturm_polys[index - (poly + 3)];
+        const int p1 = index;
+        const int p2 = index - (poly + 3);
         index += poly + 2;
 
         // long polynomial division
-        const double remainder_coefficeint = (double)p2[0] / p1[0];
+        const double remainder_coefficeint =
+            (double)sturm_polys[p2 + 0] / sturm_polys[p1 + 0];
         const double remainder_sum =
-            (p2[1] - remainder_coefficeint * p1[1]) / p1[0];
+            (sturm_polys[p2 + 1] -
+             remainder_coefficeint * sturm_polys[p1 + 1]) /
+            sturm_polys[p1 + 0];
         for (int c = 0; c <= poly; ++c, ++element_idx)
         {
-            double coefficient = remainder_sum * p1[c + 1] - p2[c + 2];
+            double coefficient = remainder_sum * sturm_polys[p1 + c + 1] -
+                                 sturm_polys[p2 + c + 2];
             if (c != poly)
             {
-                coefficient += remainder_coefficeint * p1[c + 2];
+                coefficient += remainder_coefficeint * sturm_polys[p1 + c + 2];
             }
 
             sturm_polys[element_idx] = coefficient;
@@ -299,8 +304,8 @@ float SolveBisection(QuinticSolver& solver, const Polynomial5& polynomial,
         const float mid = (bisection_max + bisection_min) / 2.f;
 
         const float r = EvaluateNormedEquation(polynomial, mid);
-        const bool r_positive = r >= 0.0f;
-        if (r_positive)
+        const bool curr_positive = signbits(r);
+        if (curr_positive)
         {
             if (r >= -kTolerance)
             {
@@ -603,6 +608,8 @@ inline float sdCubicBezier(const vec3f& p, const uniform SDFGeometry& primitive)
     spline.inv_leading_coefficient = primitive.inv_leading_coefficient;
 
     QuinticSolver solver;
+    solver.max_divisions = 1 + (uint32)(logf(1.f / kTolerance) / M_LN2);
+    solver.num_stored = 0;
     vec3f closest;
 
     ClosestPointToSpline(spline, solver, p, closest);
