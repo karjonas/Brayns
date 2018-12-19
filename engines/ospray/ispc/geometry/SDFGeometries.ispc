@@ -43,7 +43,7 @@
 
 #define SDF_EPSILON 0.000001
 
-#define kTolerance 0.000001
+#define kTolerance 0.00001
 #define STURM_SIZE 21
 
 #define MAGIC_FAIL 1234567.f
@@ -83,6 +83,11 @@ struct SDFGeometries
     uniform bool useSafeIncrement;
 };
 
+float length_sq(vec3f& p)
+{
+    return p.x * p.x + p.y * p.y + p.z * p.z;
+}
+
 DEFINE_SAFE_INCREMENT(SDFGeometry);
 DEFINE_SAFE_INCREMENT(uint64);
 
@@ -102,7 +107,7 @@ struct SturmInterval
 SturmInterval createSturmInterval(float _min, float _max, int _sign_min,
                                   int _sign_max, int _id, int _roots)
 {
-    SturmInterval s;
+    uniform SturmInterval s;
     s.min = _min;
     s.max = _max;
     s.sign_min = _sign_min;
@@ -114,8 +119,8 @@ SturmInterval createSturmInterval(float _min, float _max, int _sign_min,
 
 struct Interval
 {
-    varying float min;
-    varying float max;
+    float min;
+    float max;
 };
 
 Interval toInterval(const SturmInterval& si)
@@ -136,7 +141,7 @@ struct QuinticSolver
     //    float tolerance_;
     varying SturmInterval interval_storage[100]; // FIXME, find proper size
     varying uint32 num_stored;
-    varying uint32 max_divisions;
+    uniform uint32 max_divisions;
 };
 
 struct Polynomial5
@@ -159,7 +164,7 @@ struct CubicBezierSpline
     uniform float inv_leading_coefficient;
 };
 
-unmasked vec3f EvaluateAt(const uniform CubicBezierSpline& s, const float t)
+vec3f EvaluateAt(const uniform CubicBezierSpline& s, const float t)
 {
     // The polynomial for is faster at evaluating than the parametric.
     return t * (s.polynomial_form[2] +
@@ -177,7 +182,7 @@ float EvaluatePolynomial(uniform Polynomial5& polynomial, const int start,
         result += polynomial.equation[i];
         result *= t;
     }
-    result += polynomial.equation[degree];
+    result += polynomial.equation[start + degree];
 
     return result;
 }
@@ -192,7 +197,7 @@ float EvaluatePolynomial(uniform SturmSequence5& polynomial, const int start,
         result += polynomial.data[i];
         result *= t;
     }
-    result += polynomial.data[degree];
+    result += polynomial.data[start + degree];
 
     return result;
 }
@@ -340,6 +345,9 @@ int Solve(uniform QuinticSolver& solver, uniform Polynomial5& polynomial,
     Interval root_intervals[5];
     int found_roots = 0;
 
+    // print("sign_min %", sign_min);
+    // print("sign_max %", sign_max);
+
     // Isolate roots
     while (solver.num_stored > 0 && total_roots != found_roots)
     {
@@ -347,12 +355,17 @@ int Solve(uniform QuinticSolver& solver, uniform Polynomial5& polynomial,
         solver.num_stored -= 1;
 
         int num_roots = i.sign_min - i.sign_max;
+        // print("num_roots %", num_roots);
 
         if (num_roots <= 0)
         {
-            if (!solver.num_stored == 0 &&
+            // print("% a");
+
+            if (solver.num_stored != 0 &&
                 solver.interval_storage[solver.num_stored - 1].id == i.id)
             {
+                // print("% a1");
+
                 i = solver.interval_storage[solver.num_stored - 1];
                 solver.num_stored -= 1;
                 num_roots = i.expected_roots;
@@ -364,9 +377,11 @@ int Solve(uniform QuinticSolver& solver, uniform Polynomial5& polynomial,
         }
 
         // Prune sibling intervals based on the results of the current interval.
-        if (num_roots == i.expected_roots && (!solver.num_stored == 0) &&
+        if (num_roots == i.expected_roots && (solver.num_stored != 0) &&
             solver.interval_storage[solver.num_stored - 1].id == i.id)
         {
+            // print("% b");
+
             solver.num_stored -= 1;
         }
         else if (num_roots == i.expected_roots - 1 &&
@@ -374,6 +389,8 @@ int Solve(uniform QuinticSolver& solver, uniform Polynomial5& polynomial,
                  solver.interval_storage[solver.num_stored - 1].id ==
                      i.id) // This case was a biggest perf improvemnt.
         {
+            // print("% b1");
+
             const SturmInterval si_tmp =
                 solver.interval_storage[solver.num_stored - 1];
             root_intervals[found_roots++] = toInterval(si_tmp);
@@ -382,17 +399,25 @@ int Solve(uniform QuinticSolver& solver, uniform Polynomial5& polynomial,
 
         if (num_roots == 1)
         {
+            // print("% c");
+
             root_intervals[found_roots++] = toInterval(i);
         }
         else
         {
+            // print("% c1");
+
             float mid = (i.min + i.max) / 2.f;
             if (mid - i.min <= kTolerance)
             {
+                // print("% c2");
+
                 root_intervals[found_roots++] = toInterval(i);
             }
             else
             {
+                // print("% ac3");
+
                 // Divide the current interval and search deeper.
                 const int sign_mid =
                     CountSturmSignChanges(sturm_polynomials, mid);
@@ -409,17 +434,24 @@ int Solve(uniform QuinticSolver& solver, uniform Polynomial5& polynomial,
         }
     }
 
+    // print("%", found_roots);
+
     int num_real_roots = 0;
     for (int i = 0; i < found_roots; ++i)
     {
+        // print("% d");
+
         const Interval interval = root_intervals[i];
         float root =
             SolveBisection(solver, polynomial, interval.min, interval.max);
+        // print("root %", root);
         if (root != MAGIC_FAIL)
         {
             out_roots.data[num_real_roots++] = root;
         }
     }
+
+    // print("%", num_real_roots);
 
     return num_real_roots;
 }
@@ -446,13 +478,13 @@ float ClosestPointToSpline(const uniform CubicBezierSpline& spline,
 
     // Test the first control point.
     vec3f min_position = spline.control_points[0];
-    float min_dist_sq = length(position - min_position);
+    float min_dist_sq = length_sq(position - min_position);
 
     // Test the roots.
     for (int i = 0; i < roots; ++i)
     {
         const vec3f root_position = EvaluateAt(spline, realRoots.data[i]);
-        const float root_dist_sq = length(position - root_position);
+        const float root_dist_sq = length_sq(position - root_position);
         if (root_dist_sq < min_dist_sq)
         {
             min_dist_sq = root_dist_sq;
@@ -461,7 +493,7 @@ float ClosestPointToSpline(const uniform CubicBezierSpline& spline,
     }
 
     // Test the last control point.
-    const float dist_sq = length(position - spline.control_points[3]);
+    const float dist_sq = length_sq(position - spline.control_points[3]);
     if (dist_sq < min_dist_sq)
     {
         min_dist_sq = dist_sq;
@@ -604,7 +636,7 @@ inline float sdCubicBezier(const vec3f& p, const uniform SDFGeometry& primitive)
 
     const float d = ClosestPointToSpline(spline, solver, p, closest);
 
-    return d - 1.0f;
+    return sqrt(d) - 1.0f;
 #if 0
     return -1.f;
 
@@ -993,4 +1025,25 @@ export void SDFGeometriesGeometry_set(void* uniform _self, void* uniform _model,
         geom, (uniform RTCOccludedFunctionN)&SDFGeometries_intersect);
     rtcCommitGeometry(geom);
     rtcReleaseGeometry(geom);
+}
+
+export void testCurve(void* uniform primitive_in)
+{
+    uniform SDFGeometry primitive = *((SDFGeometry*)primitive_in);
+
+    for (int i = 74; i < 139; i++)
+    {
+        for (int j = 48; j < 100; j++)
+        {
+            vec3f p;
+            p.x = (float)i;
+            p.y = (float)j;
+            p.z = 10.f;
+            float d = sdCubicBezier(p, primitive);
+            print("(%, %) %\n", i, j, d);
+        }
+    }
+    // print("%\n", d);
+
+    // output[0] = d;
 }

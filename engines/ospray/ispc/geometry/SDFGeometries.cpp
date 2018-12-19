@@ -66,6 +66,9 @@ void SDFGeometries::finalize(ospray::Model* model)
         bounds.extend(bMaxf);
     }
 
+    ispc::testCurve((void*)&geoms[0]);
+    // exit(0);
+
     ispc::SDFGeometriesGeometry_set(getIE(), model->getIE(), data->data,
                                     numSDFGeometries, neighbours->data,
                                     numNeighbours, geometries->data);
