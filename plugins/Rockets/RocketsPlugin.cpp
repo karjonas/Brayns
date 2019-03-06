@@ -26,8 +26,9 @@
 
 #include <brayns/common/Timer.h>
 #include <brayns/common/tasks/Task.h>
+#include <brayns/engine/FrameBuffer.h>
+#include <brayns/parameters/ParametersManager.h>
 #include <brayns/pluginapi/PluginAPI.h>
-
 #include <brayns/tasks/AddModelFromBlobTask.h>
 #include <brayns/tasks/AddModelTask.h>
 #include <brayns/tasks/LoadModelFunctor.h>

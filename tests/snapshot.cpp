@@ -45,36 +45,6 @@ BOOST_AUTO_TEST_CASE(snapshot)
     BOOST_CHECK(compareBase64TestImage(image, "snapshot.png"));
 }
 
-BOOST_AUTO_TEST_CASE(snapshot_with_render_params)
-{
-    // move far enough away to see the background
-    auto camera{std::make_unique<brayns::Camera>()};
-    *camera = getCamera();
-    camera->setPosition({0, 0, 50});
-
-    brayns::SnapshotParams params;
-    params.camera = std::move(camera);
-    params.format = "jpg";
-    params.size = {5, 5};
-    params.quality = 75;
-    params.name = "black_image";
-
-    auto image =
-        makeRequest<brayns::SnapshotParams,
-                    brayns::ImageGenerator::ImageBase64>("snapshot", params);
-
-    // use a red background, as opposed to the default black
-    auto renderingParams{std::make_unique<brayns::RenderingParameters>()};
-    renderingParams->setBackgroundColor({1, 0, 0});
-    params.renderingParams = std::move(renderingParams);
-    params.name = "red_image";
-    auto image_with_red_background =
-        makeRequest<brayns::SnapshotParams,
-                    brayns::ImageGenerator::ImageBase64>("snapshot", params);
-
-    BOOST_CHECK_NE(image.data, image_with_red_background.data);
-}
-
 BOOST_AUTO_TEST_CASE(snapshot_empty_params)
 {
     BOOST_CHECK_THROW((makeRequest<brayns::SnapshotParams,

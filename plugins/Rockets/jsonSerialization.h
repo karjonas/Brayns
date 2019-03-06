@@ -212,12 +212,9 @@ inline void init(brayns::BinaryParam* s, ObjectHandler* h)
 
 inline void init(brayns::SnapshotParams* s, ObjectHandler* h)
 {
-    h->add_property("animation_parameters", &s->animParams, Flags::Optional);
-    h->add_property("camera", &s->camera, Flags::Optional);
     h->add_property("format", &s->format);
     h->add_property("name", &s->name, Flags::Optional);
     h->add_property("quality", &s->quality, Flags::Optional);
-    h->add_property("renderer", &s->renderingParams, Flags::Optional);
     h->add_property("samples_per_pixel", &s->samplesPerPixel, Flags::Optional);
     h->add_property("size", toArray<2, uint32_t>(s->size));
     h->set_flags(Flags::DisallowUnknownKey);
