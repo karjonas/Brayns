@@ -265,15 +265,16 @@ void Scene::buildDefault()
 
     auto model = createModel();
     const Vector3f WHITE = {1.f, 1.f, 1.f};
-
+    const Vector3f offset = {-0.5, -0.5f, -0.5f};
     const Vector3f positions[8] = {
-        {0.f, 0.f, 0.f}, {1.f, 0.f, 0.f}, //    6--------7
-        {0.f, 1.f, 0.f},                  //   /|       /|
-        {1.f, 1.f, 0.f},                  //  2--------3 |
-        {0.f, 0.f, 1.f},                  //  | |      | |
-        {1.f, 0.f, 1.f},                  //  | 4------|-5
-        {0.f, 1.f, 1.f},                  //  |/       |/
-        {1.f, 1.f, 1.f}                   //  0--------1
+        {0.f, 0.f, 0.f}, //
+        {1.f, 0.f, 0.f}, //    6--------7
+        {0.f, 1.f, 0.f}, //   /|       /|
+        {1.f, 1.f, 0.f}, //  2--------3 |
+        {0.f, 0.f, 1.f}, //  | |      | |
+        {1.f, 0.f, 1.f}, //  | 4------|-5
+        {0.f, 1.f, 1.f}, //  |/       |/
+        {1.f, 1.f, 1.f}  //  0--------1
     };
 
     const uint16_t indices[6][6] = {
@@ -306,7 +307,7 @@ void Scene::buildDefault()
         auto& triangleMesh = model->getTriangleMeshes()[materialId];
         for (size_t j = 0; j < 6; ++j)
         {
-            const auto position = positions[indices[i][j]];
+            const auto position = offset + positions[indices[i][j]];
             triangleMesh.vertices.push_back(position);
         }
         triangleMesh.indices.push_back(Vector3ui(0, 1, 2));
@@ -323,7 +324,8 @@ void Scene::buildDefault()
         material->setDiffuseColor(WHITE);
         material->setSpecularColor(WHITE);
         material->setSpecularExponent(100.f);
-        model->addSphere(materialId, {{0.25f, 0.26f, 0.30f}, 0.25f});
+        model->addSphere(materialId,
+                         {offset + Vector3f(0.25f, 0.26f, 0.30f), 0.25f});
         ++materialId;
     }
 
@@ -333,9 +335,9 @@ void Scene::buildDefault()
         material->setDiffuseColor({0.1f, 0.1f, 0.8f});
         material->setSpecularColor(WHITE);
         material->setSpecularExponent(10.f);
-        model->addCylinder(materialId, {{0.25f, 0.126f, 0.75f},
-                                        {0.75f, 0.126f, 0.75f},
-                                        0.125f});
+        model->addCylinder(materialId,
+                           {offset + Vector3f(0.25f, 0.126f, 0.75f),
+                            offset + Vector3f(0.75f, 0.126f, 0.75f), 0.125f});
         ++materialId;
     }
 
@@ -345,10 +347,9 @@ void Scene::buildDefault()
         material->setReflectionIndex(0.8f);
         material->setSpecularColor(WHITE);
         material->setSpecularExponent(10.f);
-        model->addCone(materialId, {{0.75f, 0.01f, 0.25f},
-                                    {0.75f, 0.5f, 0.25f},
-                                    0.15f,
-                                    0.f});
+        model->addCone(materialId,
+                       {offset + Vector3f(0.75f, 0.01f, 0.25f),
+                        offset + Vector3f(0.75f, 0.5f, 0.25f), 0.15f, 0.f});
         ++materialId;
     }
 
