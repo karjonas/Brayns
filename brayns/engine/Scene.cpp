@@ -265,7 +265,7 @@ void Scene::buildDefault()
 
     auto model = createModel();
     // const Vector3f WHITE = {1.f, 1.f, 1.f};
-    const Vector3f GREEN = {0.f, 1.0f, 0.f};
+    const Vector3f GREEN = {1.f, 1.0f, 1.f};
 
     const auto materialId = 0;
     auto material =
@@ -288,14 +288,22 @@ void Scene::buildDefault()
     model->addSDFGeometry(0, sphere, {});
 #endif
 
-// Blending
-
-#if 1
+// Blending ON
+#if 0
     auto sphere0 = createSDFSphere({1, 4, 0}, 0.2);
     auto sphere1 = createSDFSphere({1.3, 4, 0}, 0.2);
 
     model->addSDFGeometry(0, sphere0, {1});
     model->addSDFGeometry(0, sphere1, {0});
+#endif
+
+// Blending OFF
+#if 1
+    auto sphere0 = createSDFSphere({1, 4, 0}, 0.2);
+    auto sphere1 = createSDFSphere({1.3, 4, 0}, 0.2);
+
+    model->addSDFGeometry(0, sphere0, {});
+    model->addSDFGeometry(0, sphere1, {});
 #endif
 
     addModel(
