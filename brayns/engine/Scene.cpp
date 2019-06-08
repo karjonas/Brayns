@@ -275,6 +275,9 @@ void Scene::buildDefault()
     material->setSpecularExponent(10.f);
     material->setOpacity(1.f);
 
+// SDF types
+
+#if 0
     auto pill = createSDFConePill({0, 0, 0}, {1.5, 0, 0}, 0.4, 0.1);
     auto pillSigmoid =
         createSDFConePillSigmoid({0, 2, 0}, {1.5, 2, 0}, 0.4, 0.1);
@@ -283,6 +286,17 @@ void Scene::buildDefault()
     model->addSDFGeometry(0, pill, {});
     model->addSDFGeometry(0, pillSigmoid, {});
     model->addSDFGeometry(0, sphere, {});
+#endif
+
+// Blending
+
+#if 1
+    auto sphere0 = createSDFSphere({1, 4, 0}, 0.2);
+    auto sphere1 = createSDFSphere({1.3, 4, 0}, 0.2);
+
+    model->addSDFGeometry(0, sphere0, {1});
+    model->addSDFGeometry(0, sphere1, {0});
+#endif
 
     addModel(
         std::make_shared<ModelDescriptor>(std::move(model), "DefaultScene"));
