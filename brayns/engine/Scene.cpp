@@ -263,17 +263,8 @@ void Scene::buildDefault()
 {
     BRAYNS_INFO << "Building default Cornell Box scene" << std::endl;
 
-    auto model = createModel();
     // const Vector3f WHITE = {1.f, 1.f, 1.f};
     const Vector3f GREEN = {1.f, 1.0f, 1.f};
-
-    const auto materialId = 0;
-    auto material =
-        model->createMaterial(materialId, "wall_" + std::to_string(materialId));
-    material->setDiffuseColor(GREEN);
-    material->setSpecularColor(GREEN);
-    material->setSpecularExponent(10.f);
-    material->setOpacity(1.f);
 
 // SDF types
 
@@ -289,25 +280,54 @@ void Scene::buildDefault()
 #endif
 
 // Blending ON
-#if 0
-    auto sphere0 = createSDFSphere({1, 4, 0}, 0.2);
-    auto sphere1 = createSDFSphere({1.3, 4, 0}, 0.2);
+#if 1
+    {
+        auto model = createModel();
 
-    model->addSDFGeometry(0, sphere0, {1});
-    model->addSDFGeometry(0, sphere1, {0});
+        const auto materialId = 0;
+        auto material =
+            model->createMaterial(materialId,
+                                  "wall_" + std::to_string(materialId));
+        material->setDiffuseColor(GREEN);
+        material->setSpecularColor(GREEN);
+        material->setSpecularExponent(10.f);
+        material->setOpacity(1.f);
+
+        auto sphere0 = createSDFSphere({1, 4, 0}, 0.2);
+        auto sphere1 = createSDFSphere({1.3, 4, 0}, 0.2);
+
+        model->addSDFGeometry(0, sphere0, {1});
+        model->addSDFGeometry(0, sphere1, {0});
+
+        addModel(
+            std::make_shared<ModelDescriptor>(std::move(model), "Blending on"));
+    }
 #endif
 
 // Blending OFF
 #if 1
-    auto sphere0 = createSDFSphere({1, 4, 0}, 0.2);
-    auto sphere1 = createSDFSphere({1.3, 4, 0}, 0.2);
+    {
+        auto model = createModel();
 
-    model->addSDFGeometry(0, sphere0, {});
-    model->addSDFGeometry(0, sphere1, {});
+        const auto materialId = 0;
+        auto material =
+            model->createMaterial(materialId,
+                                  "wall_" + std::to_string(materialId));
+        material->setDiffuseColor(GREEN);
+        material->setSpecularColor(GREEN);
+        material->setSpecularExponent(10.f);
+        material->setOpacity(1.f);
+
+        auto sphere0 = createSDFSphere({1, 4, 0}, 0.2);
+        auto sphere1 = createSDFSphere({1.3, 4, 0}, 0.2);
+
+        model->addSDFGeometry(0, sphere0, {});
+        model->addSDFGeometry(0, sphere1, {});
+
+        addModel(std::make_shared<ModelDescriptor>(std::move(model),
+                                                   "Blending off"));
+    }
 #endif
-
-    addModel(
-        std::make_shared<ModelDescriptor>(std::move(model), "DefaultScene"));
 }
 
 void Scene::setMaterialsColorMap(MaterialsColorMap colorMap)
