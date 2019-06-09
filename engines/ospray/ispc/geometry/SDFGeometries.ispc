@@ -37,8 +37,8 @@
 #define SDF_TYPE_CONE_PILL 2
 #define SDF_TYPE_CONE_PILL_SIGMOID 3
 
-#define SDF_BLEND_FACTOR 0.5
-#define SDF_BLEND_LERP_FACTOR 1
+#define SDF_BLEND_FACTOR 0.1
+#define SDF_BLEND_LERP_FACTOR 0.2
 
 #define SDF_EPSILON 0.000001
 
@@ -233,10 +233,13 @@ static void SDFGeometries_postIntersect(uniform Geometry* uniform geometry,
 
 uniform box3fa calcBounds(const uniform SDFGeometry& primitive)
 {
+#define BBOX_EXPANSION 0.1
     if (primitive.type == SDF_TYPE_SPHERE)
     {
-        return make_box3fa(primitive.center - make_vec3f(primitive.radius),
-                           primitive.center + make_vec3f(primitive.radius));
+        return make_box3fa(primitive.center -
+                               make_vec3f(BBOX_EXPANSION + primitive.radius),
+                           primitive.center +
+                               make_vec3f(BBOX_EXPANSION + primitive.radius));
     }
     // else primitive.type == SDF_TYPE_CONE_PILL ||
     //      primitive.type == SDF_TYPE_PILL ||
@@ -248,8 +251,8 @@ uniform box3fa calcBounds(const uniform SDFGeometry& primitive)
     const uniform vec3f maxV = make_vec3f(max(primitive.p0.x, primitive.p1.x),
                                           max(primitive.p0.y, primitive.p1.y),
                                           max(primitive.p0.z, primitive.p1.z));
-    return make_box3fa(minV - make_vec3f(primitive.radius),
-                       maxV + make_vec3f(primitive.radius));
+    return make_box3fa(minV - make_vec3f(BBOX_EXPANSION + primitive.radius),
+                       maxV + make_vec3f(BBOX_EXPANSION + primitive.radius));
 }
 
 void SDFGeometries_bounds(const RTCBoundsFunctionArguments* uniform args)

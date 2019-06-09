@@ -108,25 +108,25 @@ inline Boxd getSDFBoundingBox(const SDFGeometry& geom)
     {
     case brayns::SDFType::Sphere:
     {
-        bounds.merge(geom.center - Vector3f(geom.radius));
-        bounds.merge(geom.center + Vector3f(geom.radius));
+        bounds.merge(geom.center - Vector3f(geom.radius + 0.1));
+        bounds.merge(geom.center + Vector3f(geom.radius + 0.1));
         break;
     }
     case brayns::SDFType::Pill:
     {
-        bounds.merge(geom.p0 - Vector3f(geom.radius));
-        bounds.merge(geom.p0 + Vector3f(geom.radius));
-        bounds.merge(geom.p1 - Vector3f(geom.radius));
-        bounds.merge(geom.p1 + Vector3f(geom.radius));
+        bounds.merge(geom.p0 - Vector3f(geom.radius + 0.1));
+        bounds.merge(geom.p0 + Vector3f(geom.radius + 0.1));
+        bounds.merge(geom.p1 - Vector3f(geom.radius + 0.1));
+        bounds.merge(geom.p1 + Vector3f(geom.radius + 0.1));
         break;
     }
     case brayns::SDFType::ConePill:
     case brayns::SDFType::ConePillSigmoid:
     {
-        bounds.merge(geom.p0 - Vector3f(geom.radius));
-        bounds.merge(geom.p0 + Vector3f(geom.radius));
-        bounds.merge(geom.p1 - Vector3f(geom.radius_tip));
-        bounds.merge(geom.p1 + Vector3f(geom.radius_tip));
+        bounds.merge(geom.p0 - Vector3f(geom.radius + 0.1));
+        bounds.merge(geom.p0 + Vector3f(geom.radius + 0.1));
+        bounds.merge(geom.p1 - Vector3f(geom.radius_tip + 0.1));
+        bounds.merge(geom.p1 + Vector3f(geom.radius_tip + 0.1));
         break;
     }
     default:

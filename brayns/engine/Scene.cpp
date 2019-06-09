@@ -266,19 +266,6 @@ void Scene::buildDefault()
     // const Vector3f WHITE = {1.f, 1.f, 1.f};
     const Vector3f GREEN = {1.f, 1.0f, 1.f};
 
-// SDF types
-
-#if 0
-    auto pill = createSDFConePill({0, 0, 0}, {1.5, 0, 0}, 0.4, 0.1);
-    auto pillSigmoid =
-        createSDFConePillSigmoid({0, 2, 0}, {1.5, 2, 0}, 0.4, 0.1);
-    auto sphere = createSDFSphere({1, 4, 0}, 0.5);
-
-    model->addSDFGeometry(0, pill, {});
-    model->addSDFGeometry(0, pillSigmoid, {});
-    model->addSDFGeometry(0, sphere, {});
-#endif
-
 // Blending ON
 #if 1
     {
@@ -328,6 +315,62 @@ void Scene::buildDefault()
                                                    "Blending off"));
     }
 #endif
+
+    // SDF types
+    {
+        auto model = createModel();
+
+        const auto materialId = 0;
+        auto material =
+            model->createMaterial(materialId,
+                                  "wall_" + std::to_string(materialId));
+        material->setDiffuseColor(GREEN);
+        material->setSpecularColor(GREEN);
+        material->setSpecularExponent(10.f);
+        material->setOpacity(1.f);
+        auto pill = createSDFConePill({0, 4, 0}, {1.5, 4, 0}, 0.4, 0.1);
+        model->addSDFGeometry(0, pill, {0});
+
+        addModel(
+            std::make_shared<ModelDescriptor>(std::move(model), "Pill cone"));
+    }
+
+    // SDF types
+    {
+        auto model = createModel();
+
+        const auto materialId = 0;
+        auto material =
+            model->createMaterial(materialId,
+                                  "wall_" + std::to_string(materialId));
+        material->setDiffuseColor(GREEN);
+        material->setSpecularColor(GREEN);
+        material->setSpecularExponent(10.f);
+        material->setOpacity(1.f);
+        auto pill = createSDFConePillSigmoid({0, 4, 0}, {1.5, 4, 0}, 0.4, 0.1);
+        model->addSDFGeometry(0, pill, {0});
+
+        addModel(std::make_shared<ModelDescriptor>(std::move(model),
+                                                   "Pill cone sigmoid"));
+    }
+
+    // SDF types
+    {
+        auto model = createModel();
+
+        const auto materialId = 0;
+        auto material =
+            model->createMaterial(materialId,
+                                  "wall_" + std::to_string(materialId));
+        material->setDiffuseColor(GREEN);
+        material->setSpecularColor(GREEN);
+        material->setSpecularExponent(10.f);
+        material->setOpacity(1.f);
+        auto sphere = createSDFSphere({0.5, 4, 0}, 0.5);
+        model->addSDFGeometry(0, sphere, {0});
+
+        addModel(std::make_shared<ModelDescriptor>(std::move(model), "Sphere"));
+    }
 }
 
 void Scene::setMaterialsColorMap(MaterialsColorMap colorMap)
