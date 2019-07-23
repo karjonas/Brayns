@@ -1527,13 +1527,17 @@ public:
             METHOD_REMOVE_MODEL,
             "Remove the model(s) with the given ID(s) from the scene", "ids",
             "Array of model IDs"};
-        _handleRPC<size_ts, bool>(desc,
-                                  [& engine = _engine](const size_ts& ids) {
-                                      for (const auto id : ids)
-                                          engine.getScene().removeModel(id);
-                                      engine.triggerRender();
-                                      return true;
-                                  });
+        _handleRPC<size_ts, bool>(desc, [& engine =
+                                             _engine](const size_ts& ids) {
+            for (const auto id : ids)
+                engine.getScene().removeModel(id);
+            // Update Scene size
+            engine.getStatistics().setSceneSizeInBytes(
+                engine.getScene().getSizeInBytes());
+            engine.triggerRender();
+            engine.triggerRender();
+            return true;
+        });
     }
 
     void _handleUpdateModel()

@@ -333,7 +333,7 @@ void PLYImporter::ConvertMeshes(std::vector<PLY::Face>* avFaces,
 
     // split by materials
     std::vector<unsigned int>* aiSplit =
-        new std::vector<unsigned int>[avMaterials->size()];
+        new std::vector<unsigned int>[ avMaterials->size() ];
 
     unsigned int iNum = 0;
     for (std::vector<PLY::Face>::const_iterator i = avFaces->begin();
@@ -457,11 +457,11 @@ void PLYImporter::ReplaceDefaultMaterial(std::vector<PLY::Face>* avFaces,
         pcHelper->AddProperty<int>(&iMode, 1, AI_MATKEY_SHADING_MODEL);
 
         aiColor3D clr;
-        clr.b = clr.g = clr.r = 0.6f;
+        clr.b = clr.g = clr.r = 1.0f;
         pcHelper->AddProperty<aiColor3D>(&clr, 1, AI_MATKEY_COLOR_DIFFUSE);
         pcHelper->AddProperty<aiColor3D>(&clr, 1, AI_MATKEY_COLOR_SPECULAR);
 
-        clr.b = clr.g = clr.r = 0.05f;
+        clr.b = clr.g = clr.r = 1.0f;
         pcHelper->AddProperty<aiColor3D>(&clr, 1, AI_MATKEY_COLOR_AMBIENT);
 
         // The face order is absolutely undefined for PLY, so we have to
